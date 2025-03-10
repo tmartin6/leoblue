@@ -57,3 +57,21 @@ def ascii_to_hex(ascii_str):
     """
     hex_str = ascii_str.encode('utf-8').hex().upper()
     return hex_str
+
+
+def build_fixed_legacy_ad_data():
+    """Construit un paquet publicitaire BLE en mode legacy avec des données fixes."""
+    adv_data = []
+
+    # Ajout d'un Flag (AD Type = 01, valeur = 06 pour BLE Général Discoverable + BR/EDR non supporté)
+    adv_data.append("020106")
+
+    # Ajout d'un nom complet (AD Type = 09)
+    nom = "MonAppareil"
+    nom_hex = ascii_to_hex(nom)
+    len_nom = 1 + len(nom_hex) // 2
+    adv_data.append(f"{len_nom:02X}09{nom_hex}")
+
+    hex_result = ''.join(adv_data)
+    print(f"Hex = {hex_result}")
+    return list(hex_result)

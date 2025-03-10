@@ -1,4 +1,4 @@
-from packet_builder import build_legacy_ad_data, generate_packet_header_legacy
+from packet_builder import *
 from waveform_generator import ble_waveform_generator
 from ble_utils import access_address_bytes_to_bits, packet_bytes_to_bits
 from crc_utils import append_crc
@@ -28,7 +28,8 @@ Chsel = 1
 RFU = 0
 
 # Build payload
-payload_hex = build_legacy_ad_data()
+#payload_hex = build_legacy_ad_data()
+payload_hex = build_fixed_legacy_ad_data()
 
 #payload_hex = ['0', '2', '0','1', '0', '6', '0', '8', '0', '9', '6', 'C', '6', '5', '6', 'F', '6', '2', '6', 'C', '7', '5', '6', '5']
 #payload_hex = ['0', '2', '0','1', '0', '6']
