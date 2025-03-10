@@ -1,3 +1,5 @@
+import time
+
 def build_legacy_ad_data():
     """Construit les données publicitaires BLE en mode legacy."""
     max_length = 31
@@ -58,7 +60,6 @@ def ascii_to_hex(ascii_str):
     hex_str = ascii_str.encode('utf-8').hex().upper()
     return hex_str
 
-
 def build_fixed_legacy_ad_data():
     """Construit un paquet publicitaire BLE en mode legacy avec des données fixes."""
     adv_data = []
@@ -71,6 +72,31 @@ def build_fixed_legacy_ad_data():
     nom_hex = ascii_to_hex(nom)
     len_nom = 1 + len(nom_hex) // 2
     adv_data.append(f"{len_nom:02X}09{nom_hex}")
+
+    hex_result = ''.join(adv_data)
+    print(f"Hex = {hex_result}")
+    return list(hex_result)
+
+
+def build_dynamic_legacy_ad_data():
+    """Construit un paquet publicitaire BLE en mode legacy avec des données fixes."""
+    adv_data = []
+
+    # Ajout d'un Flag (AD Type = 01, valeur = 06 pour BLE Général Discoverable + BR/EDR non supporté)
+    adv_data.append("020106")
+
+     # Récupération de l'heure actuelle au format HH:MM:SS
+    prefix = "Leo: "
+    current_time = time.strftime("%H:%M:%S", time.localtime())
+    full_str = prefix + current_time
+    full_hex = ascii_to_hex(full_str) # Convertir en hex
+
+    len_data = 1 + len(full_hex) // 2
+    if len_data > 31:  # Vérifier la limite BLE (31 octets max)
+        print("Données trop longues pour un paquet BLE !")
+        return []
+    
+    adv_data.append(f"{len_data:02X}09{full_hex}")
 
     hex_result = ''.join(adv_data)
     print(f"Hex = {hex_result}")
