@@ -4,7 +4,8 @@ from ble_utils import access_address_bytes_to_bits, packet_bytes_to_bits
 from crc_utils import append_crc
 from iq_utils import  transmit_iq_hackrf, save_signal_to_file
 from scipy.io import savemat
-import threading
+import os
+import signal
 # Parameters
 channel_packet = 'Primary'
 packet_mode = 'Legacy'
@@ -82,40 +83,55 @@ RFU = 0
 
 
 def transmit_ble():
-    """Met à jour et transmet le signal BLE toutes les X millisecondes."""
-    while True:
-        payload_hex = build_dynamic_legacy_ad_data()
+    """Met à jour l'heure et relance la transmission IQ sans bloquer."""
+    process = None  # Stocke le processus hackrf_transfer
 
-        if not payload_hex:
-            print("Erreur lors de la génération du payload, on saute cette transmission.")
-            continue
+    try:
+        while True:
+            # Générer le payload avec l'heure actuelle
+            payload_hex = build_dynamic_legacy_ad_data()
 
-        length_payload = (len(payload_hex) + len(advA_hex)) // 2
-        length_payload_bit = bin(length_payload)[2:].zfill(nb_bits_length_header)
-        length_payload_bits = list(map(int, length_payload_bit[::-1]))
+            if not payload_hex:
+                print("Erreur lors de la génération du payload, on saute cette transmission.")
+                continue
 
-        new_header_LEG = PDU_type + [RxAdd, TxAdd, Chsel, RFU] + list(map(int, length_payload_bits))
+            # Construire la trame BLE
+            length_payload = (len(payload_hex) + len(advA_hex)) // 2
+            length_payload_bit = bin(length_payload)[2:].zfill(nb_bits_length_header)
+            length_payload_bits = list(map(int, length_payload_bit[::-1]))
 
-        advA = list(map(int, packet_bytes_to_bits(advA_hex)))
-        payload = list(map(int, packet_bytes_to_bits(payload_hex)))
-        access_address = list(map(int, access_address_bytes_to_bits(access_address_hex)))
+            new_header_LEG = PDU_type + [RxAdd, TxAdd, Chsel, RFU] + list(map(int, length_payload_bits))
 
-        # Générer header et CRC
-        data_to_send = generate_packet_header_legacy(advA + payload, new_header_LEG)
-        sig_crc = append_crc(data_to_send, default_CRC_init)
+            advA = list(map(int, packet_bytes_to_bits(advA_hex)))
+            payload = list(map(int, packet_bytes_to_bits(payload_hex)))
+            access_address = list(map(int, access_address_bytes_to_bits(access_address_hex)))
 
-        # Générer la forme d'onde
-        tx_waveform, bitstream_complete = ble_waveform_generator(sig_crc, ble_mode, sps, channel_index, access_address)
+            # Générer header et CRC
+            data_to_send = generate_packet_header_legacy(advA + payload, new_header_LEG)
+            sig_crc = append_crc(data_to_send, default_CRC_init)
 
-        # Sauvegarder et transmettre (lancement dans un thread)
-        filename = save_signal_to_file(tx_waveform, ble_mode, packet_mode)
-        print(f"📡 Transmission BLE : {filename} avec heure mise à jour.")
+            # Générer la forme d'onde
+            tx_waveform, bitstream_complete = ble_waveform_generator(sig_crc, ble_mode, sps, channel_index, access_address)
 
-        transmit_thread = threading.Thread(target=transmit_iq_hackrf, args=(filename, frequency, sample_rate, gain, interval_ms))
-        transmit_thread.start()  # Lancer la transmission sans bloquer la mise à jour de l'heure
+            # Sauvegarder le fichier IQ
+            filename = save_signal_to_file(tx_waveform, ble_mode, packet_mode)
+            print(f"📡 Transmission BLE mise à jour : {filename}")
 
-        # Attendre avant la prochaine mise à jour
-        time.sleep(interval_ms / 1000)
+            # Si une transmission est en cours, l'arrêter avant de relancer
+            if process:
+                os.kill(process.pid, signal.SIGTERM)  # Arrêter proprement hackrf_transfer
+                print("⏹️ Transmission précédente stoppée.")
+
+            # Démarrer une nouvelle transmission
+            process = transmit_iq_hackrf(filename, frequency, sample_rate, gain)
+
+            # Attendre avant la prochaine mise à jour
+            time.sleep(interval_ms / 1000)
+
+    except KeyboardInterrupt:
+        print("Arrêt de la transmission.")
+        if process:
+            os.kill(process.pid, signal.SIGTERM)  # Arrêter HackRF avant de quitter
 
 # Lancer la transmission en boucle
 transmit_ble()

@@ -4,39 +4,31 @@ import time
 
 
 
-def transmit_iq_hackrf(filename, frequency, sample_rate, gain, interval_ms):
+import subprocess
+import time
+
+def transmit_iq_hackrf(filename, frequency, sample_rate, gain):
     """
-    Transmet un fichier IQ avec la HackRF en boucle toutes les 20ms.
-
-    Parameters:
-    - filename : str (nom du fichier IQ)
-    - frequency : int (fréquence de transmission en Hz, ex: 2.4 GHz)
-    - sample_rate : int (taux d'échantillonnage en Hz, ex: 2 MHz)
-    - gain : int (gain de transmission en dB)
-    - interval_ms : int (intervalle entre chaque transmission en millisecondes)
+    Lance hackrf_transfer en arrière-plan et met à jour le fichier IQ à chaque cycle.
     """
-    print(f"Transmission IQ depuis {filename} à {frequency/1e6} MHz toutes les {interval_ms} ms...")
+    print(f"Transmission IQ depuis {filename} à {frequency/1e6} MHz...")
 
-    try:
-        while True:
-            # Exécuter la commande hackrf_transfer pour envoyer le fichier IQ
-            cmd = [
-                "hackrf_transfer",
-                "-t", filename,
-                "-f", str(frequency),
-                "-s", str(sample_rate),
-                "-x", str(gain),
-                "-a", "1",  # Activer l'amplificateur d'antenne
-                "-p", "1",  # Activer le PA
-                "-R"
-            ]
-            subprocess.run(cmd, check=True)
-            
-            # Attente entre les transmissions
-            time.sleep(interval_ms / 1000.0)
+    cmd = [
+        "hackrf_transfer",
+        "-t", filename,
+        "-f", str(frequency),
+        "-s", str(sample_rate),
+        "-x", str(gain),
+        "-a", "1",
+        "-p", "1",
+        "-R"
+    ]
+    
+    # Lancer HackRF en arrière-plan (processus non bloquant)
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    except KeyboardInterrupt:
-        print("\nTransmission arrêtée.")
+    return process  # Retourner le processus pour pouvoir l'arrêter si besoin
+
 
 
 def save_signal_to_file(tx_waveform_doppler, ble_mode, packet_mode):
